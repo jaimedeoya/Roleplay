@@ -2,8 +2,8 @@
   "id": "negociador-b2b",
   "name": "Negociación B2B — Director de Compras",
   "description": "Practica una reunión de venta consultiva con un director de compras industrial exigente.",
-  "provider": "anthropic",
-  "model": "claude-sonnet-4-6",
+  "provider": "nanogpt",
+  "model": "chatgpt-4o-latest",
   "temperature": 0.8,
   "max_tokens": 1024,
   "character": {

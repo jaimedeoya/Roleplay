@@ -4,6 +4,7 @@ import {
   findSession,
   getSessionById,
   createSession,
+  setSessionModel,
   addMessage,
   listMessages,
   listObjectives,
@@ -35,6 +36,37 @@ function buildSystemPrompt(scenario, session) {
   return sys;
 }
 
+/**
+ * Resolve which (provider, model) pair to use for a given session.
+ * Priority: session override > scenario default > env DEFAULT_MODEL.
+ */
+function resolveModel(scenario, session) {
+  const provider = session.provider || scenario.provider || 'nanogpt';
+  const model = session.model || scenario.model || process.env.DEFAULT_MODEL;
+  if (!model) {
+    const err = new Error(
+      'No model configured. Set it in the scenario JSON, via DEFAULT_MODEL, or let the user pick one.'
+    );
+    err.status = 400;
+    throw err;
+  }
+  return { provider, model };
+}
+
+function sessionPayload(session, isNew = false) {
+  return {
+    id: session.id,
+    student_id: session.student_id,
+    scenario_id: session.scenario_id,
+    status: session.status,
+    provider: session.provider,
+    model: session.model,
+    created_at: session.created_at,
+    updated_at: session.updated_at,
+    is_new: isNew,
+  };
+}
+
 async function maybeSummarise(scenario, session) {
   const threshold = Number(process.env.SUMMARY_THRESHOLD || 30);
   const keepRecent = Number(process.env.SUMMARY_KEEP_RECENT || 10);
@@ -54,7 +86,6 @@ async function maybeSummarise(scenario, session) {
     if (!newSummary) return;
 
     setSessionSummary(session.id, newSummary);
-    // Drop the older messages now captured by the summary so history stays short.
     getDb()
       .prepare('DELETE FROM messages WHERE session_id = ? AND id <= ?')
       .run(session.id, lastKeptBoundaryId);
@@ -65,12 +96,13 @@ async function maybeSummarise(scenario, session) {
 
 /**
  * POST /api/sessions
- * body: { student_id, scenario_id }
+ * body: { student_id, scenario_id, model? }
  * Creates a new session or resumes the existing one for this student+scenario.
+ * If `model` is supplied on a NEW session, it's stored as the session's model.
  */
 router.post('/', async (req, res) => {
   try {
-    const { student_id, scenario_id } = req.body || {};
+    const { student_id, scenario_id, model } = req.body || {};
     if (!student_id || !scenario_id) {
       return res.status(400).json({ error: 'student_id and scenario_id are required' });
     }
@@ -82,7 +114,15 @@ router.post('/', async (req, res) => {
 
     if (!session) {
       const id = crypto.randomUUID();
-      session = createSession({ id, studentId: student_id, scenarioId: scenario_id });
+      const initialProvider = scenario.provider || 'nanogpt';
+      const initialModel = model || scenario.model || process.env.DEFAULT_MODEL || null;
+      session = createSession({
+        id,
+        studentId: student_id,
+        scenarioId: scenario_id,
+        provider: initialProvider,
+        model: initialModel,
+      });
       seedObjectives(id, scenario.learning_objectives.map((o) => o.id));
       if (scenario.first_message) {
         addMessage(id, 'assistant', scenario.first_message);
@@ -90,24 +130,12 @@ router.post('/', async (req, res) => {
       isNew = true;
     }
 
-    const messages = listMessages(session.id);
-    const objectives = listObjectives(session.id);
-    const evaluation = getEvaluation(session.id);
-
     res.json({
-      session: {
-        id: session.id,
-        student_id: session.student_id,
-        scenario_id: session.scenario_id,
-        status: session.status,
-        created_at: session.created_at,
-        updated_at: session.updated_at,
-        is_new: isNew,
-      },
+      session: sessionPayload(session, isNew),
       scenario: publicScenario(scenario),
-      messages,
-      objectives,
-      evaluation,
+      messages: listMessages(session.id),
+      objectives: listObjectives(session.id),
+      evaluation: getEvaluation(session.id),
     });
   } catch (e) {
     console.error(e);
@@ -124,7 +152,7 @@ router.get('/:id', (req, res) => {
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const scenario = loadScenario(session.scenario_id);
   res.json({
-    session,
+    session: sessionPayload(session),
     scenario: publicScenario(scenario),
     messages: listMessages(session.id),
     objectives: listObjectives(session.id),
@@ -133,17 +161,82 @@ router.get('/:id', (req, res) => {
 });
 
 /**
+ * PATCH /api/sessions/:id/model
+ * body: { model, provider? }
+ * Switch the model used for the rest of the session. Persists across reloads.
+ */
+router.patch('/:id/model', (req, res) => {
+  const session = getSessionById(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const { model, provider } = req.body || {};
+  if (!model || typeof model !== 'string') {
+    return res.status(400).json({ error: 'model is required' });
+  }
+
+  const scenario = loadScenario(session.scenario_id);
+  if (Array.isArray(scenario.allowed_models) && scenario.allowed_models.length > 0) {
+    if (!scenario.allowed_models.includes(model)) {
+      return res.status(400).json({ error: 'Model not allowed by this scenario' });
+    }
+  }
+
+  setSessionModel(session.id, provider || session.provider || scenario.provider || 'nanogpt', model);
+  res.json({ session: sessionPayload(getSessionById(session.id)) });
+});
+
+async function generateAndTrack(session, scenario, res) {
+  const { provider, model } = resolveModel(scenario, session);
+  const history = listMessages(session.id);
+
+  const reply = await chat({
+    provider,
+    model,
+    system: buildSystemPrompt(scenario, session),
+    messages: buildChatMessages(history),
+    temperature: scenario.temperature ?? 0.8,
+    maxTokens: scenario.max_tokens ?? 1024,
+  });
+
+  addMessage(session.id, 'assistant', reply.content);
+
+  let objectives = listObjectives(session.id);
+  try {
+    const updated = await evaluateProgress({
+      scenario,
+      messages: listMessages(session.id),
+      currentStatus: objectives,
+    });
+    for (const u of updated) {
+      if (!u || !u.id) continue;
+      const status = ['pending', 'in_progress', 'done'].includes(u.status) ? u.status : 'pending';
+      upsertObjective(session.id, u.id, status, u.evidence || null);
+    }
+    objectives = listObjectives(session.id);
+  } catch (e) {
+    console.warn('[evaluator] failed:', e.message);
+  }
+
+  maybeSummarise(scenario, getSessionById(session.id)).catch((e) =>
+    console.warn('[summariser] async failed:', e.message)
+  );
+
+  res.json({
+    reply: reply.content,
+    messages: listMessages(session.id),
+    objectives,
+  });
+}
+
+/**
  * POST /api/sessions/:id/messages
  * body: { content }
- * Sends the student's message and returns the agent's reply plus updated objectives.
  */
 router.post('/:id/messages', async (req, res) => {
   try {
     const session = getSessionById(req.params.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    if (session.status !== 'active') {
-      return res.status(400).json({ error: 'Session is closed' });
-    }
+    if (session.status !== 'active') return res.status(400).json({ error: 'Session is closed' });
 
     const { content } = req.body || {};
     if (!content || typeof content !== 'string' || !content.trim()) {
@@ -151,117 +244,38 @@ router.post('/:id/messages', async (req, res) => {
     }
 
     const scenario = loadScenario(session.scenario_id);
-
     addMessage(session.id, 'user', content.trim());
-
-    const history = listMessages(session.id);
-
-    const reply = await chat({
-      provider: scenario.provider,
-      model: scenario.model,
-      system: buildSystemPrompt(scenario, session),
-      messages: buildChatMessages(history),
-      temperature: scenario.temperature ?? 0.8,
-      maxTokens: scenario.max_tokens ?? 1024,
-    });
-
-    addMessage(session.id, 'assistant', reply.content);
-
-    let objectives = listObjectives(session.id);
-    try {
-      const updated = await evaluateProgress({
-        scenario,
-        messages: listMessages(session.id),
-        currentStatus: objectives,
-      });
-      for (const u of updated) {
-        if (!u || !u.id) continue;
-        const status = ['pending', 'in_progress', 'done'].includes(u.status) ? u.status : 'pending';
-        upsertObjective(session.id, u.id, status, u.evidence || null);
-      }
-      objectives = listObjectives(session.id);
-    } catch (e) {
-      console.warn('[evaluator] failed:', e.message);
-    }
-
-    // Fire-and-forget summary if the history is long enough.
-    maybeSummarise(scenario, getSessionById(session.id)).catch((e) =>
-      console.warn('[summariser] async failed:', e.message)
-    );
-
-    res.json({
-      reply: reply.content,
-      messages: listMessages(session.id),
-      objectives,
-    });
+    await generateAndTrack(session, scenario, res);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
 /**
  * POST /api/sessions/:id/regenerate
- * Drops the last assistant message and produces a new one from the same history.
  */
 router.post('/:id/regenerate', async (req, res) => {
   try {
     const session = getSessionById(req.params.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    if (session.status !== 'active') {
-      return res.status(400).json({ error: 'Session is closed' });
-    }
+    if (session.status !== 'active') return res.status(400).json({ error: 'Session is closed' });
 
     const scenario = loadScenario(session.scenario_id);
     deleteLastAssistantMessage(session.id);
 
     const history = listMessages(session.id);
-    if (history.length === 0) {
-      return res.status(400).json({ error: 'Nothing to regenerate' });
-    }
+    if (history.length === 0) return res.status(400).json({ error: 'Nothing to regenerate' });
 
-    const reply = await chat({
-      provider: scenario.provider,
-      model: scenario.model,
-      system: buildSystemPrompt(scenario, session),
-      messages: buildChatMessages(history),
-      temperature: scenario.temperature ?? 0.8,
-      maxTokens: scenario.max_tokens ?? 1024,
-    });
-
-    addMessage(session.id, 'assistant', reply.content);
-
-    let objectives = listObjectives(session.id);
-    try {
-      const updated = await evaluateProgress({
-        scenario,
-        messages: listMessages(session.id),
-        currentStatus: objectives,
-      });
-      for (const u of updated) {
-        if (!u || !u.id) continue;
-        const status = ['pending', 'in_progress', 'done'].includes(u.status) ? u.status : 'pending';
-        upsertObjective(session.id, u.id, status, u.evidence || null);
-      }
-      objectives = listObjectives(session.id);
-    } catch (e) {
-      console.warn('[evaluator] failed:', e.message);
-    }
-
-    res.json({
-      reply: reply.content,
-      messages: listMessages(session.id),
-      objectives,
-    });
+    await generateAndTrack(session, scenario, res);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
 /**
  * POST /api/sessions/:id/evaluate
- * Closes the session and produces the final evaluation report.
  */
 router.post('/:id/evaluate', async (req, res) => {
   try {
@@ -269,9 +283,7 @@ router.post('/:id/evaluate', async (req, res) => {
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const existing = getEvaluation(session.id);
-    if (existing) {
-      return res.json({ evaluation: existing, already: true });
-    }
+    if (existing) return res.json({ evaluation: existing, already: true });
 
     const scenario = loadScenario(session.scenario_id);
     const messages = listMessages(session.id);
@@ -293,7 +305,6 @@ router.post('/:id/evaluate', async (req, res) => {
 
 /**
  * POST /api/sessions/:id/reopen
- * Lets the student go back and continue practising after seeing the evaluation.
  */
 router.post('/:id/reopen', (req, res) => {
   const session = getSessionById(req.params.id);

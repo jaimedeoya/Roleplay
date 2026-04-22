@@ -12,6 +12,7 @@ const els = {
   btnSend: document.getElementById('btn-send'),
   btnRegenerate: document.getElementById('btn-regenerate'),
   btnEvaluate: document.getElementById('btn-evaluate'),
+  modelSelect: document.getElementById('model-select'),
   objectives: document.getElementById('objectives'),
   banner: document.getElementById('banner'),
   evalModal: document.getElementById('eval-modal'),
@@ -26,6 +27,7 @@ const state = {
   scenario: null,
   objectives: [],
   messages: [],
+  models: [],
   busy: false,
   evaluation: null,
 };
@@ -129,6 +131,8 @@ function updateControlAvailability() {
   els.btnRegenerate.disabled = state.busy || sessionClosed || !hasUserMsg;
   els.btnEvaluate.disabled = state.busy || !hasUserMsg;
   els.btnEvaluate.textContent = sessionClosed ? 'Ver evaluación' : 'Finalizar y evaluar';
+  els.modelSelect.disabled =
+    state.busy || sessionClosed || !state.session || state.models.length === 0;
 }
 
 function renderScenario() {
@@ -137,6 +141,73 @@ function renderScenario() {
   els.scenarioName.textContent = s.name;
   els.scenarioDescription.textContent = s.description || '';
   document.title = `Roleplay — ${s.name}`;
+}
+
+function renderModelSelector() {
+  els.modelSelect.innerHTML = '';
+  const allowed = state.scenario?.allowed_models || null;
+  const available = allowed && allowed.length
+    ? state.models.filter((m) => allowed.includes(m.id))
+    : state.models;
+
+  const current =
+    state.session?.model ||
+    state.scenario?.default_model ||
+    (available[0] && available[0].id) ||
+    '';
+
+  // Make sure the currently selected model is in the list even if /api/models
+  // didn't return it (e.g. offline, or allow-list points to a deprecated id).
+  const ids = new Set(available.map((m) => m.id));
+  if (current && !ids.has(current)) {
+    available.unshift({ id: current, label: current, owned_by: null, context_length: null });
+  }
+
+  if (available.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'Sin modelos disponibles';
+    els.modelSelect.appendChild(opt);
+    els.modelSelect.disabled = true;
+    return;
+  }
+
+  for (const m of available) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.owned_by ? `${m.label} · ${m.owned_by}` : m.label;
+    els.modelSelect.appendChild(opt);
+  }
+  els.modelSelect.value = current;
+  els.modelSelect.disabled = state.busy || state.session?.status === 'completed';
+}
+
+async function loadModels() {
+  try {
+    const data = await api('/models');
+    state.models = data.models || [];
+  } catch (e) {
+    showBanner(`No se pudo cargar la lista de modelos: ${e.message}`);
+    state.models = [];
+  }
+  renderModelSelector();
+}
+
+async function onModelChange(ev) {
+  const newModel = ev.target.value;
+  if (!state.session || !newModel || newModel === state.session.model) return;
+  const prev = state.session.model;
+  state.session.model = newModel;
+  try {
+    await api(`/sessions/${state.session.id}/model`, {
+      method: 'PATCH',
+      body: JSON.stringify({ model: newModel }),
+    });
+  } catch (e) {
+    showBanner(`No se pudo cambiar el modelo: ${e.message}`);
+    state.session.model = prev;
+    els.modelSelect.value = prev || '';
+  }
 }
 
 async function loadSession() {
@@ -159,6 +230,7 @@ async function loadSession() {
     renderScenario();
     renderMessages();
     renderObjectives();
+    renderModelSelector();
     updateControlAvailability();
   } catch (e) {
     showBanner(`Error al iniciar la sesión: ${e.message}`);
@@ -349,5 +421,9 @@ els.btnEvaluate.addEventListener('click', evaluateSession);
 els.evalClose.addEventListener('click', closeModal);
 els.btnEvalOk.addEventListener('click', closeModal);
 els.btnReopen.addEventListener('click', reopenSession);
+els.modelSelect.addEventListener('change', onModelChange);
 
-loadSession();
+Promise.all([loadModels(), loadSession()]).then(() => {
+  renderModelSelector();
+  updateControlAvailability();
+});

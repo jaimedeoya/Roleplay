@@ -18,6 +18,8 @@ export function initDb(dbPath) {
       scenario_id TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
       summary TEXT,
+      provider TEXT,
+      model TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(student_id, scenario_id)
@@ -55,6 +57,11 @@ export function initDb(dbPath) {
     );
   `);
 
+  // Lightweight migrations for older DBs created before these columns existed.
+  const cols = new Set(db.prepare("PRAGMA table_info(sessions)").all().map((r) => r.name));
+  if (!cols.has('model')) db.exec(`ALTER TABLE sessions ADD COLUMN model TEXT`);
+  if (!cols.has('provider')) db.exec(`ALTER TABLE sessions ADD COLUMN provider TEXT`);
+
   return db;
 }
 
@@ -77,13 +84,19 @@ export function getSessionById(id) {
   return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(id);
 }
 
-export function createSession({ id, studentId, scenarioId }) {
+export function createSession({ id, studentId, scenarioId, provider, model }) {
   getDb()
     .prepare(
-      'INSERT INTO sessions (id, student_id, scenario_id) VALUES (?, ?, ?)'
+      'INSERT INTO sessions (id, student_id, scenario_id, provider, model) VALUES (?, ?, ?, ?, ?)'
     )
-    .run(id, studentId, scenarioId);
+    .run(id, studentId, scenarioId, provider ?? null, model ?? null);
   return getSessionById(id);
+}
+
+export function setSessionModel(id, provider, model) {
+  getDb()
+    .prepare('UPDATE sessions SET provider = ?, model = ?, updated_at = ? WHERE id = ?')
+    .run(provider ?? null, model ?? null, now(), id);
 }
 
 export function updateSessionStatus(id, status) {

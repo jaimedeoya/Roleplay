@@ -9,6 +9,7 @@ import { initDb } from './db.js';
 import { initScenarios } from './scenarios.js';
 import scenariosRouter from './routes/scenarios.js';
 import sessionsRouter from './routes/sessions.js';
+import modelsRouter from './routes/models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +36,7 @@ app.use(express.json({ limit: '256kb' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/scenarios', scenariosRouter);
 app.use('/api/sessions', sessionsRouter);
+app.use('/api/models', modelsRouter);
 
 if (fs.existsSync(FRONTEND_DIR)) {
   app.use('/', express.static(FRONTEND_DIR));

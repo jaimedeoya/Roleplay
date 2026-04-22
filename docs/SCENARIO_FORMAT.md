@@ -13,8 +13,9 @@ See [`scenarios/negociador-b2b.json`](../scenarios/negociador-b2b.json) for a co
 | `id` | yes | URL-safe id (`[a-z0-9-_]+`). Must match filename. |
 | `name` | yes | Human-readable title shown in the header. |
 | `description` | no | Short subtitle shown under the name. |
-| `provider` | yes | `anthropic` \| `openrouter` \| `nanogpt`. Selects which API key and endpoint the backend uses. |
-| `model` | yes | Provider-specific model id (e.g. `claude-sonnet-4-6`, `openai/gpt-4o-mini`, etc.). |
+| `provider` | no | `nanogpt` (default) \| `openrouter` \| `anthropic`. Selects which API key and endpoint the backend uses. |
+| `model` | no | Provider-specific model id used by default (e.g. `chatgpt-4o-latest`). The student can switch to any other model from the UI selector. If omitted, falls back to `DEFAULT_MODEL` from the env. |
+| `allowed_models` | no | Optional array of model ids the student is allowed to switch to. If present, the UI selector is filtered to this whitelist. |
 | `temperature` | no | Sampling temperature for the roleplay model. Default `0.8`. |
 | `max_tokens` | no | Max tokens per agent reply. Default `1024`. |
 | `character` | no | `{ name, role, personality, ... }`. Only `name` is used by the UI (as the speaker label); the rest is for your own reference. |

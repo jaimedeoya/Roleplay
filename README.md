@@ -20,13 +20,17 @@ data/       SQLite persistente (ignorado por git).
 4. Cuando la conversación pasa de `SUMMARY_THRESHOLD` mensajes, un resumidor comprime los mensajes antiguos en un "summary" que se inyecta en el system prompt, para mantener la ventana de contexto acotada.
 5. Al pulsar **Finalizar y evaluar** se genera un informe final con score, puntos fuertes, áreas de mejora y feedback por objetivo.
 
-### Proveedores soportados
+### Proveedor
 
-- **Anthropic** (`claude-*`)
-- **OpenRouter** (cualquier modelo del catálogo)
-- **NanoGPT**
+**NanoGPT** es el proveedor por defecto (roleplay, evaluador y resumidor). El modelo se elige en tres capas con esta prioridad:
 
-Las claves se configuran por variable de entorno. El escenario elige qué `provider` + `model` usa el agente de roleplay; el evaluador y el resumidor se configuran globalmente y se pueden sobreescribir por escenario.
+1. Modelo elegido por el alumno en el selector de la UI (persistido en la sesión).
+2. Campo `model` del escenario JSON.
+3. Variable de entorno `DEFAULT_MODEL`.
+
+El catálogo del selector se puebla desde `GET /api/models`, que proxea `https://nano-gpt.com/api/v1/models`. Si un escenario quiere acotar los modelos disponibles para sus alumnos, puede definir `allowed_models` (array de ids).
+
+Los adapters para **Anthropic** (`claude-*`) y **OpenRouter** también están implementados para los escenarios que los necesiten; basta con indicar `provider` en el JSON del escenario y aportar la API key correspondiente.
 
 ## Instalación
 
@@ -64,8 +68,10 @@ El `student_id` lo inyecta el LMS (SCORM/LTI) desde el identificador del alumno.
 | `GET` | `/api/health` | Healthcheck. |
 | `GET` | `/api/scenarios` | Lista de escenarios disponibles. |
 | `GET` | `/api/scenarios/:id` | Vista pública de un escenario (sin el system prompt). |
-| `POST` | `/api/sessions` | Crea o reanuda una sesión. Body: `{student_id, scenario_id}`. |
+| `GET` | `/api/models` | Catálogo de modelos de NanoGPT (cacheado 5 min; `?refresh=1` fuerza recarga). |
+| `POST` | `/api/sessions` | Crea o reanuda una sesión. Body: `{student_id, scenario_id, model?}`. |
 | `GET` | `/api/sessions/:id` | Estado completo de la sesión. |
+| `PATCH` | `/api/sessions/:id/model` | Cambia el modelo usado por la sesión. Body: `{model}`. |
 | `POST` | `/api/sessions/:id/messages` | Envía un turno y devuelve la respuesta + objetivos actualizados. Body: `{content}`. |
 | `POST` | `/api/sessions/:id/regenerate` | Regenera la última respuesta del agente. |
 | `POST` | `/api/sessions/:id/evaluate` | Genera el informe final y cierra la sesión. |

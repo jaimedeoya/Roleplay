@@ -12,12 +12,14 @@ export function initScenarios(dir) {
 }
 
 function validate(s, file) {
-  const required = ['id', 'name', 'provider', 'model', 'system_prompt', 'learning_objectives'];
+  const required = ['id', 'name', 'system_prompt', 'learning_objectives'];
   for (const k of required) {
     if (s[k] === undefined || s[k] === null) {
       throw new Error(`Scenario ${file} missing field: ${k}`);
     }
   }
+  // provider/model are optional — default to nanogpt + DEFAULT_MODEL when resolving.
+  if (s.provider === undefined) s.provider = 'nanogpt';
   if (!Array.isArray(s.learning_objectives) || s.learning_objectives.length === 0) {
     throw new Error(`Scenario ${file}: learning_objectives must be a non-empty array`);
   }
@@ -76,6 +78,9 @@ export function publicScenario(s) {
     description: s.description || '',
     character: s.character || null,
     first_message: s.first_message || null,
+    provider: s.provider || 'nanogpt',
+    default_model: s.model || null,
+    allowed_models: Array.isArray(s.allowed_models) ? s.allowed_models : null,
     learning_objectives: s.learning_objectives.map((o) => ({
       id: o.id,
       name: o.name,
