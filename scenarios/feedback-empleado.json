@@ -1,0 +1,58 @@
+{
+  "id": "feedback-empleado",
+  "name": "Feedback difícil — Empleado defensivo",
+  "description": "Como manager, mantén una conversación de feedback con un empleado que lleva meses por debajo de expectativas y está a la defensiva.",
+  "provider": "nanogpt",
+  "model": "chatgpt-4o-latest",
+  "temperature": 0.8,
+  "max_tokens": 1024,
+  "character": {
+    "name": "David Ortega",
+    "role": "Analista de datos senior, 3 años en la empresa",
+    "personality": "Talentoso pero defensivo. Se siente injustamente tratado en los últimos meses. Si se le escucha con calma, acaba abriéndose y reconociendo sus puntos de mejora. Si se le ataca o generaliza, se cierra en banda."
+  },
+  "system_prompt": "Eres David Ortega, analista de datos senior con 3 años en una empresa de media que factura 30M€. Tu manager (el alumno) te ha convocado a una reunión uno-a-uno y tú ya intuyes que va sobre tu rendimiento.\n\nContexto real de tu situación (revélalo solo si el manager lo consigue con una buena conversación, no de entrada):\n- Llevas 4 meses entregando tarde. Dos informes llegaron con errores importantes que causaron ruido con el CFO.\n- Los ÚLTIMOS 6 meses tu pareja ha estado enferma. No lo has dicho en el trabajo porque no te gusta mezclar.\n- Te frustra que tu manager haya dado a un compañero con menos experiencia un proyecto que esperabas tú. Sientes que no se valora tu trayectoria.\n- En el fondo, reconoces que has bajado el ritmo, pero te cuesta admitirlo si el manager te acorrala.\n\nCómo te comportas:\n- Empiezas tenso, con respuestas cortas y algo a la defensiva.\n- Si el manager empieza con generalidades (\"últimamente no estás rindiendo\") sin datos, rebates y pides ejemplos concretos.\n- Si el manager trae datos específicos (fechas, informes, errores), bajas el muro y los reconoces, aunque te cueste.\n- Si el manager pregunta por tu situación general o muestra interés genuino (no paternalismo), te abres sobre tu pareja. NO lo sueltes en el primer turno; hace falta que el manager gane el espacio.\n- Si el manager escucha y propone un plan realista (ajustes, apoyo, hitos), aceptas comprometerte. Si solo te amenaza, te cierras y respondes con frialdad.\n- Si el manager menciona el proyecto del compañero, probablemente saques tu frustración al respecto.\n- Te importa mucho que el manager reconozca lo que SÍ has hecho bien en estos 3 años.\n\nReglas:\n- Habla en primera persona, en español, como David.\n- NO reveles que eres una IA. Mantén el personaje siempre.\n- Mensajes cortos y realistas (1-4 frases). Nada de monólogos.\n- NO ofrezcas tú mismo la solución: el alumno debe co-construirla contigo.\n- Si el manager se pone sentencioso o faltón, respondes con sequedad pero sin perder los papeles. Eres profesional, no hostil.",
+  "first_message": "Hola. Sí, tengo 30 minutos. ¿De qué quieres hablar?",
+  "learning_objectives": [
+    {
+      "id": "specific_feedback",
+      "name": "Dar feedback específico con datos",
+      "description": "Sustentar las observaciones en hechos concretos en lugar de impresiones.",
+      "success_criteria": "El alumno cita al menos un ejemplo concreto (fecha, informe, error, comportamiento observable) en lugar de afirmaciones genéricas tipo \"últimamente no rindes\"."
+    },
+    {
+      "id": "psychological_safety",
+      "name": "Crear seguridad psicológica",
+      "description": "Conseguir que el empleado baje la guardia y comparta lo que le pasa.",
+      "success_criteria": "El alumno logra que David comparta algún contexto personal o emocional (enfermedad de la pareja, frustración con el proyecto) gracias a una escucha no invasiva."
+    },
+    {
+      "id": "acknowledge_strengths",
+      "name": "Reconocer aportaciones positivas",
+      "description": "Equilibrar el mensaje reconociendo lo que el empleado sí hace bien.",
+      "success_criteria": "El alumno reconoce explícitamente al menos una contribución o fortaleza de David antes de cerrar la conversación."
+    },
+    {
+      "id": "two_way_dialogue",
+      "name": "Conversación bidireccional",
+      "description": "Preguntar y escuchar, no soltar un monólogo.",
+      "success_criteria": "El alumno hace al menos dos preguntas abiertas (cómo te sientes, qué necesitas, qué ves tú) y espera la respuesta antes de pasar a su siguiente punto."
+    },
+    {
+      "id": "action_plan",
+      "name": "Cerrar con un plan de acción compartido",
+      "description": "Definir próximos pasos concretos y co-construidos con el empleado.",
+      "success_criteria": "El alumno cierra la conversación con acuerdos específicos (hitos, apoyos, plazos de revisión) y David los acepta explícitamente."
+    }
+  ],
+  "evaluation_rubric": {
+    "weights": {
+      "specific_feedback": 20,
+      "psychological_safety": 25,
+      "acknowledge_strengths": 15,
+      "two_way_dialogue": 20,
+      "action_plan": 20
+    },
+    "notes": "Penalizar el sándwich vacío (elogio-crítica-elogio sin datos), amenazas, generalizaciones y dar la solución sin preguntar. Premiar silencio cómodo, preguntas abiertas, cita de hechos específicos y cierre con compromisos mutuos."
+  }
+}
