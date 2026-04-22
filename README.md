@@ -57,9 +57,11 @@ Si el repo vive dentro de una carpeta sincronizada con OneDrive, `npm install` p
 <iframe
   src="https://tu-dominio.com/?student_id=<ID>&scenario_id=negociador-b2b"
   style="width:100%;height:640px;border:0"
-  allow="clipboard-write">
+  allow="clipboard-write; microphone">
 </iframe>
 ```
+
+Incluye `microphone` en `allow` si quieres que el alumno pueda dictar sus réplicas por voz (Whisper Large V3 vía `/api/transcribe`). Sin ese permiso, el botón micro mostrará "Permiso denegado".
 
 El `student_id` lo inyecta el LMS (SCORM/LTI) desde el identificador del alumno.
 
@@ -84,6 +86,15 @@ El `student_id` lo inyecta el LMS (SCORM/LTI) desde el identificador del alumno.
 | `POST` | `/api/sessions/:id/regenerate` | Regenera la última respuesta del agente. |
 | `POST` | `/api/sessions/:id/evaluate` | Genera el informe final y cierra la sesión. |
 | `POST` | `/api/sessions/:id/reopen` | Reabre una sesión cerrada para seguir practicando. |
+| `POST` | `/api/sessions/:id/reset` | Borra mensajes, objetivos, resumen y evaluación de la sesión (mantiene alumno + modelo) y reinyecta el `first_message`. |
+| `POST` | `/api/sessions/:id/messages/stream` | Igual que `/messages` pero devuelve SSE (`event: delta` / `done` / `error`). |
+| `POST` | `/api/sessions/:id/regenerate/stream` | Igual que `/regenerate` pero por SSE. |
+| `POST` | `/api/transcribe` | Proxy a Whisper Large V3 de NanoGPT. Body: audio crudo (cabecera `Content-Type: audio/webm` u otro soportado). Devuelve `{ text, model, language, duration }`. |
+| `POST` | `/api/tts` | Proxy a TTS de NanoGPT (OpenAI-compatible). Body: `{ text, voice?, model?, format? }`. Devuelve audio binario. |
+| `PATCH` | `/api/sessions/:id/notes` | Guarda el cuaderno de notas del alumno. Body: `{ notes }`. |
+| `PATCH` | `/api/sessions/:id/difficulty` | Cambia la dificultad (`easy`/`normal`/`hard`) durante la sesión. |
+| `POST` | `/api/sessions/:id/hint` | Devuelve una pista de coaching (1 frase) sin spoiler. |
+| `GET` | `/api/sessions?student_id=X` | Historial del alumno: todas sus sesiones con `best_score`, `last_score`, intentos completados. |
 
 ## Variables de entorno
 

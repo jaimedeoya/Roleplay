@@ -13,3 +13,13 @@ export function getProvider(name) {
 export async function chat({ provider, ...rest }) {
   return getProvider(provider).chat(rest);
 }
+
+export async function* chatStream({ provider, ...rest }) {
+  const p = getProvider(provider);
+  if (typeof p.chatStream === 'function') {
+    yield* p.chatStream(rest);
+    return;
+  }
+  const { content } = await p.chat(rest);
+  if (content) yield content;
+}

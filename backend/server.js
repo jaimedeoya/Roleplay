@@ -10,6 +10,8 @@ import { initScenarios } from './scenarios.js';
 import scenariosRouter from './routes/scenarios.js';
 import sessionsRouter from './routes/sessions.js';
 import modelsRouter from './routes/models.js';
+import transcribeRouter from './routes/transcribe.js';
+import ttsRouter from './routes/tts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +39,8 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/scenarios', scenariosRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/models', modelsRouter);
+app.use('/api/transcribe', transcribeRouter);
+app.use('/api/tts', ttsRouter);
 
 if (fs.existsSync(FRONTEND_DIR)) {
   app.use('/', express.static(FRONTEND_DIR));

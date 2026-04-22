@@ -4,79 +4,353 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Roleplay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div class="grain" aria-hidden="true"></div>
+
     <div id="picker" class="picker hidden">
       <div class="picker-card">
-        <h1>Selecciona un escenario</h1>
-        <p class="muted">
-          En producción el LMS pasa <code>student_id</code> y <code>scenario_id</code> por URL.
-          Este selector es solo para desarrollo y pruebas manuales.
-        </p>
-        <label class="picker-field">
-          <span>ID de alumno</span>
+        <div class="picker-head">
+          <span class="kicker">Volumen 01 — Catálogo</span>
+          <h1 class="display">
+            Selecciona <em>un escenario</em>
+          </h1>
+          <p class="lede">
+            En producción, el LMS pasa <code>student_id</code> y <code>scenario_id</code> por URL.
+            Este selector es solo para desarrollo y pruebas manuales.
+          </p>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Identificador de alumno</span>
           <input id="picker-student-id" type="text" placeholder="demo" autocomplete="off" />
         </label>
-        <label class="picker-field">
-          <span>Escenario</span>
+
+        <div class="field">
+          <span class="field-label">Nivel de dificultad</span>
+          <div id="picker-difficulty" class="picker-difficulty" role="radiogroup">
+            <button type="button" class="difficulty-pill" data-level="easy">Fácil</button>
+            <button type="button" class="difficulty-pill is-active" data-level="normal">Normal</button>
+            <button type="button" class="difficulty-pill" data-level="hard">Difícil</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Escenarios disponibles</span>
           <ul id="picker-list" class="picker-list"></ul>
-        </label>
+        </div>
       </div>
     </div>
 
     <div id="app" class="app">
-      <header class="header">
-        <div class="header-main">
-          <h1 id="scenario-name">Cargando…</h1>
-          <p id="scenario-description" class="muted"></p>
+      <header class="masthead">
+        <div class="masthead-brand">
+          <span class="brand-mark" aria-hidden="true">§</span>
+          <div class="brand-text">
+            <span class="brand-kicker">Roleplay</span>
+            <span class="brand-title"><em>Academy</em></span>
+          </div>
         </div>
-        <div class="header-actions">
+
+        <div class="masthead-scenario">
+          <div class="masthead-meta">
+            <span id="session-kicker" class="kicker">Sesión activa</span>
+            <span id="attempt-chip" class="meta-chip hidden" title="Intento actual">
+              Intento <em id="attempt-num">1</em>
+            </span>
+            <span id="best-chip" class="meta-chip hidden" title="Mejor puntuación previa">
+              Mejor: <em id="best-score">—</em>
+            </span>
+            <button
+              id="difficulty-chip"
+              type="button"
+              class="meta-chip meta-chip-button"
+              title="Cambiar dificultad"
+              aria-label="Cambiar dificultad"
+            >Normal</button>
+          </div>
+          <h1 id="scenario-name" class="scenario-title">Cargando<span class="caret">…</span></h1>
+          <p id="scenario-description" class="scenario-description"></p>
+          <p id="variant-banner" class="variant-banner hidden"></p>
+
+          <div id="progress" class="progress hidden" aria-label="Progreso de objetivos">
+            <div class="progress-track">
+              <div id="progress-bar" class="progress-bar" style="--progress: 0%"></div>
+            </div>
+            <span class="progress-label">
+              <span id="progress-count"><em>0</em> / 0</span>
+              <span class="progress-word">objetivos</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="masthead-actions">
           <label class="model-picker" for="model-select">
-            <span class="model-picker-label">Modelo</span>
-            <select id="model-select" disabled>
-              <option value="">Cargando…</option>
-            </select>
+            <span class="kicker">Modelo</span>
+            <div class="select-wrap">
+              <select id="model-select" disabled>
+                <option value="">Cargando…</option>
+              </select>
+              <span class="select-chevron" aria-hidden="true">▾</span>
+            </div>
           </label>
-          <button id="btn-evaluate" class="btn btn-primary" disabled>Finalizar y evaluar</button>
+          <button
+            id="btn-help"
+            class="btn btn-ghost btn-icon"
+            title="Atajos de teclado (?)"
+            aria-label="Ver atajos de teclado"
+          >?</button>
+          <button
+            id="btn-history"
+            class="btn btn-ghost btn-icon btn-icon-history"
+            title="Mis sesiones anteriores"
+            aria-label="Ver mis sesiones anteriores"
+          ><span aria-hidden="true">☰</span></button>
+          <button
+            id="btn-audio"
+            class="btn btn-ghost btn-icon btn-icon-audio"
+            title="Activar voz del agente"
+            aria-label="Activar voz del agente"
+            aria-pressed="false"
+          ><span aria-hidden="true">🔈</span></button>
+          <button
+            id="btn-reset"
+            class="btn btn-ghost btn-icon"
+            title="Reiniciar progreso"
+            aria-label="Reiniciar progreso de la sesión"
+            disabled
+          >↺</button>
+          <button id="btn-evaluate" class="btn btn-primary" disabled>
+            <span>Finalizar y evaluar</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
       </header>
 
       <main class="main">
         <section class="chat">
+          <div class="chat-head">
+            <span class="kicker">Capítulo en curso</span>
+            <span class="chat-hint">La conversación se guarda automáticamente</span>
+          </div>
           <div id="messages" class="messages" aria-live="polite"></div>
           <form id="composer" class="composer">
-            <textarea
-              id="input"
-              placeholder="Escribe tu mensaje…"
-              rows="2"
-              autocomplete="off"
-            ></textarea>
-            <div class="composer-actions">
-              <button type="button" id="btn-regenerate" class="btn btn-ghost" title="Regenerar la última respuesta del agente">↻ Regenerar</button>
-              <button type="submit" id="btn-send" class="btn btn-primary">Enviar</button>
+            <div class="composer-frame">
+              <textarea
+                id="input"
+                placeholder="Escribe tu réplica…"
+                rows="2"
+                autocomplete="off"
+              ></textarea>
+              <div class="composer-actions">
+                <span id="draft-saved" class="draft-saved" aria-live="polite"></span>
+                <button
+                  type="button"
+                  id="btn-hint"
+                  class="btn btn-ghost"
+                  title="Pedir una pista (sin spoiler)"
+                  aria-label="Pedir una pista"
+                  disabled
+                >
+                  <span aria-hidden="true">✦</span>
+                  <span>Pista</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-mic"
+                  class="btn btn-ghost btn-mic"
+                  title="Dictar (Whisper Large V3)"
+                  aria-label="Dictar un mensaje por voz"
+                  aria-pressed="false"
+                >
+                  <span class="mic-icon" aria-hidden="true"></span>
+                  <span class="mic-label">Dictar</span>
+                  <span class="mic-timer" aria-hidden="true"></span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-regenerate"
+                  class="btn btn-ghost"
+                  title="Regenerar la última respuesta del agente"
+                  aria-label="Regenerar la última respuesta del agente"
+                >
+                  <span aria-hidden="true">↻</span>
+                  <span>Regenerar</span>
+                </button>
+                <button type="submit" id="btn-send" class="btn btn-primary">
+                  <span>Enviar</span>
+                  <span class="btn-kbd" aria-hidden="true">↵</span>
+                </button>
+              </div>
             </div>
           </form>
         </section>
 
         <aside class="quests">
-          <h2>Objetivos</h2>
+          <div class="quests-head">
+            <span class="kicker">Bitácora</span>
+            <h2 class="quests-title"><em>Objetivos</em> de aprendizaje</h2>
+          </div>
           <ul id="objectives" class="objectives"></ul>
+
+          <div class="notes">
+            <div class="notes-head">
+              <span class="kicker">Cuaderno</span>
+              <span id="notes-saved" class="notes-saved" aria-live="polite"></span>
+            </div>
+            <textarea
+              id="notes"
+              class="notes-textarea"
+              placeholder="Escribe aquí tus notas, observaciones, lo que aprendiste…"
+              rows="4"
+            ></textarea>
+          </div>
         </aside>
       </main>
 
-      <div id="banner" class="banner hidden"></div>
+      <div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
 
       <div id="eval-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="eval-title">
         <div class="modal-content">
           <header class="modal-header">
-            <h2 id="eval-title">Evaluación</h2>
+            <div>
+              <span class="kicker">Informe final</span>
+              <h2 id="eval-title" class="display"><em>Evaluación</em></h2>
+            </div>
             <button class="modal-close" id="eval-close" aria-label="Cerrar">×</button>
           </header>
           <div id="eval-body" class="modal-body"></div>
           <footer class="modal-footer">
             <button id="btn-reopen" class="btn btn-ghost">Volver a practicar</button>
             <button id="btn-eval-ok" class="btn btn-primary">Cerrar</button>
+          </footer>
+        </div>
+      </div>
+
+      <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div class="modal-content modal-sm">
+          <header class="modal-header">
+            <div>
+              <span id="confirm-kicker" class="kicker">Confirmación</span>
+              <h2 id="confirm-title" class="display"></h2>
+            </div>
+            <button class="modal-close" id="confirm-close" aria-label="Cerrar">×</button>
+          </header>
+          <div class="modal-body">
+            <p id="confirm-message" class="lede" style="margin-top:0"></p>
+            <div id="confirm-extra" class="confirm-extra hidden"></div>
+          </div>
+          <footer class="modal-footer">
+            <button id="confirm-cancel" class="btn btn-ghost">Cancelar</button>
+            <button id="confirm-ok" class="btn btn-primary">
+              <span id="confirm-ok-label">Confirmar</span>
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+          </footer>
+        </div>
+      </div>
+
+      <div id="difficulty-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="difficulty-title">
+        <div class="modal-content modal-sm">
+          <header class="modal-header">
+            <div>
+              <span class="kicker">Ajuste de práctica</span>
+              <h2 id="difficulty-title" class="display"><em>Nivel</em> de dificultad</h2>
+            </div>
+            <button class="modal-close" id="difficulty-close" aria-label="Cerrar">×</button>
+          </header>
+          <div class="modal-body">
+            <div class="difficulty-options" role="radiogroup" aria-label="Nivel de dificultad">
+              <button type="button" class="difficulty-option" data-level="easy">
+                <span class="kicker">Fácil</span>
+                <strong>Rueda con ayuda</strong>
+                <span>El personaje es más comprensivo. Ideal para un primer contacto.</span>
+              </button>
+              <button type="button" class="difficulty-option" data-level="normal">
+                <span class="kicker">Normal</span>
+                <strong>Realista</strong>
+                <span>El escenario tal como está diseñado, sin sesgos añadidos.</span>
+              </button>
+              <button type="button" class="difficulty-option" data-level="hard">
+                <span class="kicker">Difícil</span>
+                <strong>Exigente</strong>
+                <span>El personaje presiona más, objeta y cuestiona. Para consolidar.</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-title">
+        <div class="modal-content">
+          <header class="modal-header">
+            <div>
+              <span class="kicker">Tu historial</span>
+              <h2 id="history-title" class="display"><em>Sesiones</em> anteriores</h2>
+            </div>
+            <button class="modal-close" id="history-close" aria-label="Cerrar">×</button>
+          </header>
+          <div id="history-body" class="modal-body"></div>
+          <footer class="modal-footer">
+            <button id="history-ok" class="btn btn-primary">Cerrar</button>
+          </footer>
+        </div>
+      </div>
+
+      <div id="hint-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="hint-title">
+        <div class="modal-content modal-sm">
+          <header class="modal-header">
+            <div>
+              <span class="kicker">Coach te sugiere</span>
+              <h2 id="hint-title" class="display"><em>Una</em> pista</h2>
+            </div>
+            <button class="modal-close" id="hint-close" aria-label="Cerrar">×</button>
+          </header>
+          <div class="modal-body">
+            <p id="hint-text" class="hint-text">…</p>
+          </div>
+          <footer class="modal-footer">
+            <button id="hint-ok" class="btn btn-primary">Gracias</button>
+          </footer>
+        </div>
+      </div>
+
+      <div id="shortcuts-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+        <div class="modal-content modal-sm">
+          <header class="modal-header">
+            <div>
+              <span class="kicker">Ayuda rápida</span>
+              <h2 id="shortcuts-title" class="display"><em>Atajos</em> de teclado</h2>
+            </div>
+            <button class="modal-close" id="shortcuts-close" aria-label="Cerrar">×</button>
+          </header>
+          <div class="modal-body">
+            <dl class="shortcuts">
+              <dt><kbd>↵</kbd></dt>
+              <dd>Enviar el mensaje</dd>
+              <dt><kbd>Shift</kbd> + <kbd>↵</kbd></dt>
+              <dd>Salto de línea dentro del mensaje</dd>
+              <dt><kbd>Ctrl</kbd> + <kbd>R</kbd></dt>
+              <dd>Regenerar la última respuesta del agente</dd>
+              <dt><kbd>?</kbd></dt>
+              <dd>Mostrar esta ayuda</dd>
+              <dt><kbd>Esc</kbd></dt>
+              <dd>Cerrar cualquier modal abierto</dd>
+            </dl>
+            <p class="lede" style="font-size:13px; margin-top:18px">
+              El texto admite <code>**negrita**</code>, <code>*cursiva*</code> y
+              <code>`código`</code> estilo Markdown.
+            </p>
+          </div>
+          <footer class="modal-footer">
+            <button id="shortcuts-ok" class="btn btn-primary">Entendido</button>
           </footer>
         </div>
       </div>
