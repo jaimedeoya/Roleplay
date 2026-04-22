@@ -7,6 +7,24 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div id="picker" class="picker hidden">
+      <div class="picker-card">
+        <h1>Selecciona un escenario</h1>
+        <p class="muted">
+          En producción el LMS pasa <code>student_id</code> y <code>scenario_id</code> por URL.
+          Este selector es solo para desarrollo y pruebas manuales.
+        </p>
+        <label class="picker-field">
+          <span>ID de alumno</span>
+          <input id="picker-student-id" type="text" placeholder="demo" autocomplete="off" />
+        </label>
+        <label class="picker-field">
+          <span>Escenario</span>
+          <ul id="picker-list" class="picker-list"></ul>
+        </label>
+      </div>
+    </div>
+
     <div id="app" class="app">
       <header class="header">
         <div class="header-main">

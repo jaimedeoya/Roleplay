@@ -4,6 +4,10 @@ const SCENARIO_ID = qs.get('scenario_id') || qs.get('scenarioId');
 const API_BASE = (qs.get('api') || '').replace(/\/$/, '') || '';
 
 const els = {
+  app: document.getElementById('app'),
+  picker: document.getElementById('picker'),
+  pickerStudentId: document.getElementById('picker-student-id'),
+  pickerList: document.getElementById('picker-list'),
   scenarioName: document.getElementById('scenario-name'),
   scenarioDescription: document.getElementById('scenario-description'),
   messages: document.getElementById('messages'),
@@ -210,13 +214,57 @@ async function onModelChange(ev) {
   }
 }
 
-async function loadSession() {
-  if (!STUDENT_ID || !SCENARIO_ID) {
-    els.scenarioName.textContent = 'Faltan parámetros';
-    els.scenarioDescription.textContent =
-      'Añade ?student_id=<ID>&scenario_id=<ID> a la URL para iniciar la práctica.';
-    return;
+async function showPicker() {
+  els.app.classList.add('hidden');
+  els.picker.classList.remove('hidden');
+
+  const savedId = localStorage.getItem('roleplay.student_id') || 'demo';
+  els.pickerStudentId.value = savedId;
+
+  els.pickerList.innerHTML = '<li class="muted">Cargando escenarios…</li>';
+  try {
+    const data = await api('/scenarios');
+    els.pickerList.innerHTML = '';
+    if (!data.scenarios || data.scenarios.length === 0) {
+      els.pickerList.innerHTML = '<li class="muted">No hay escenarios disponibles.</li>';
+      return;
+    }
+    for (const sc of data.scenarios) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'picker-item';
+      btn.innerHTML = '';
+      const name = document.createElement('div');
+      name.className = 'picker-item-name';
+      name.textContent = sc.name;
+      btn.appendChild(name);
+      if (sc.description) {
+        const desc = document.createElement('div');
+        desc.className = 'picker-item-desc';
+        desc.textContent = sc.description;
+        btn.appendChild(desc);
+      }
+      btn.addEventListener('click', () => {
+        const studentId = (els.pickerStudentId.value || 'demo').trim() || 'demo';
+        localStorage.setItem('roleplay.student_id', studentId);
+        const params = new URLSearchParams({
+          student_id: studentId,
+          scenario_id: sc.id,
+        });
+        const api = qs.get('api');
+        if (api) params.set('api', api);
+        location.search = '?' + params.toString();
+      });
+      li.appendChild(btn);
+      els.pickerList.appendChild(li);
+    }
+  } catch (e) {
+    els.pickerList.innerHTML = `<li class="muted">Error al cargar escenarios: ${e.message}</li>`;
   }
+}
+
+async function loadSession() {
   try {
     const data = await api('/sessions', {
       method: 'POST',
@@ -423,7 +471,11 @@ els.btnEvalOk.addEventListener('click', closeModal);
 els.btnReopen.addEventListener('click', reopenSession);
 els.modelSelect.addEventListener('change', onModelChange);
 
-Promise.all([loadModels(), loadSession()]).then(() => {
-  renderModelSelector();
-  updateControlAvailability();
-});
+if (!STUDENT_ID || !SCENARIO_ID) {
+  showPicker();
+} else {
+  Promise.all([loadModels(), loadSession()]).then(() => {
+    renderModelSelector();
+    updateControlAvailability();
+  });
+}
