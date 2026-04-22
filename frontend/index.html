@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Roleplay</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="header">
+        <div class="header-main">
+          <h1 id="scenario-name">Cargando…</h1>
+          <p id="scenario-description" class="muted"></p>
+        </div>
+        <div class="header-actions">
+          <button id="btn-evaluate" class="btn btn-primary" disabled>Finalizar y evaluar</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="chat">
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <form id="composer" class="composer">
+            <textarea
+              id="input"
+              placeholder="Escribe tu mensaje…"
+              rows="2"
+              autocomplete="off"
+            ></textarea>
+            <div class="composer-actions">
+              <button type="button" id="btn-regenerate" class="btn btn-ghost" title="Regenerar la última respuesta del agente">↻ Regenerar</button>
+              <button type="submit" id="btn-send" class="btn btn-primary">Enviar</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="quests">
+          <h2>Objetivos</h2>
+          <ul id="objectives" class="objectives"></ul>
+        </aside>
+      </main>
+
+      <div id="banner" class="banner hidden"></div>
+
+      <div id="eval-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="eval-title">
+        <div class="modal-content">
+          <header class="modal-header">
+            <h2 id="eval-title">Evaluación</h2>
+            <button class="modal-close" id="eval-close" aria-label="Cerrar">×</button>
+          </header>
+          <div id="eval-body" class="modal-body"></div>
+          <footer class="modal-footer">
+            <button id="btn-reopen" class="btn btn-ghost">Volver a practicar</button>
+            <button id="btn-eval-ok" class="btn btn-primary">Cerrar</button>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
