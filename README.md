@@ -34,6 +34,8 @@ Los adapters para **Anthropic** (`claude-*`) y **OpenRouter** también están im
 
 ## Instalación
 
+Requisitos: **Node.js ≥ 22.5.0** (necesario para el driver SQLite incorporado). El backend no tiene dependencias nativas, así que no hace falta compilador ni Visual Studio Build Tools.
+
 ```bash
 cd backend
 cp .env.example .env   # edita las API keys
@@ -42,6 +44,12 @@ npm start
 ```
 
 Abre http://localhost:3000/?student_id=demo&scenario_id=negociador-b2b
+
+### Windows + OneDrive
+
+Si el repo vive dentro de una carpeta sincronizada con OneDrive, `npm install` puede fallar con errores `EPERM` porque OneDrive mantiene archivos bloqueados mientras sincroniza. Soluciones:
+- Mover el proyecto fuera de OneDrive (por ejemplo a `C:\dev\roleplay`), o
+- Pausar la sincronización de OneDrive mientras se instalan dependencias.
 
 ## Embeber en una web
 

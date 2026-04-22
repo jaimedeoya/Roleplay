@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -7,9 +7,8 @@ let db;
 export function initDb(dbPath) {
   const resolved = path.resolve(dbPath);
   fs.mkdirSync(path.dirname(resolved), { recursive: true });
-  db = new Database(resolved);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  db = new DatabaseSync(resolved, { enableForeignKeyConstraints: true });
+  db.exec('PRAGMA journal_mode = WAL');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -58,7 +57,7 @@ export function initDb(dbPath) {
   `);
 
   // Lightweight migrations for older DBs created before these columns existed.
-  const cols = new Set(db.prepare("PRAGMA table_info(sessions)").all().map((r) => r.name));
+  const cols = new Set(db.prepare('PRAGMA table_info(sessions)').all().map((r) => r.name));
   if (!cols.has('model')) db.exec(`ALTER TABLE sessions ADD COLUMN model TEXT`);
   if (!cols.has('provider')) db.exec(`ALTER TABLE sessions ADD COLUMN provider TEXT`);
 
@@ -134,12 +133,6 @@ export function deleteLastAssistantMessage(sessionId) {
   return row.id;
 }
 
-export function deleteMessagesFromId(sessionId, fromId) {
-  return getDb()
-    .prepare('DELETE FROM messages WHERE session_id = ? AND id >= ?')
-    .run(sessionId, fromId).changes;
-}
-
 export function listObjectives(sessionId) {
   return getDb()
     .prepare('SELECT objective_key, status, evidence, updated_at FROM objectives WHERE session_id = ?')
@@ -160,13 +153,18 @@ export function upsertObjective(sessionId, key, status, evidence) {
 }
 
 export function seedObjectives(sessionId, keys) {
-  const stmt = getDb().prepare(
+  const d = getDb();
+  const stmt = d.prepare(
     `INSERT OR IGNORE INTO objectives (session_id, objective_key, status) VALUES (?, ?, 'pending')`
   );
-  const tx = getDb().transaction((arr) => {
-    for (const k of arr) stmt.run(sessionId, k);
-  });
-  tx(keys);
+  d.exec('BEGIN');
+  try {
+    for (const k of keys) stmt.run(sessionId, k);
+    d.exec('COMMIT');
+  } catch (e) {
+    d.exec('ROLLBACK');
+    throw e;
+  }
 }
 
 export function saveEvaluation(sessionId, score, feedback) {
